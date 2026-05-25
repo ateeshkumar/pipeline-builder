@@ -1,114 +1,122 @@
 # VectorShift Pipeline Builder
 
-A visual pipeline builder with a drag-and-drop canvas for composing node-based workflows, backed by a FastAPI service that validates the graph structure.
+A full-stack visual pipeline builder where users drag and drop nodes onto a canvas to compose data workflows. The backend validates whether the resulting graph is a valid DAG (no cycles).
 
-## Overview
-
-This is a full-stack technical assessment submission for VectorShift. The app lets users visually construct data pipelines by wiring together typed nodes on a React Flow canvas. On submit, the frontend sends the graph to a Python backend that counts nodes/edges and checks whether the pipeline forms a valid Directed Acyclic Graph (DAG) using Kahn's topological sort algorithm.
+---
 
 ## Tech Stack
 
-| Layer    | Technology                          |
-|----------|-------------------------------------|
-| Frontend | React 18, React Flow 11, Zustand    |
-| Backend  | Python, FastAPI, Pydantic           |
-| Styling  | Plain CSS (dark theme)              |
+| Layer    | Technology                       |
+|----------|----------------------------------|
+| Frontend | React 18, React Flow 11, Zustand |
+| Backend  | Python, FastAPI, Pydantic        |
+
+---
 
 ## Project Structure
 
 ```
 ├── backend/
-│   └── main.py          # FastAPI app — /pipelines/parse endpoint + DAG check
+│   └── main.py          # FastAPI server — DAG validation endpoint
 └── frontend/
-    ├── public/
     └── src/
-        ├── nodes/       # Individual node components (Input, LLM, Output, Text, …)
-        │   ├── BaseNode.js
-        │   ├── inputNode.js
-        │   ├── llmNode.js
-        │   ├── outputNode.js
-        │   ├── textNode.js
-        │   ├── filterNode.js
-        │   ├── noteNode.js
-        │   ├── mathNode.js
-        │   ├── apiNode.js
-        │   └── transformNode.js
-        ├── App.js        # Root component
-        ├── ui.js         # React Flow canvas with drag-and-drop
-        ├── toolbar.js    # Draggable node palette
-        ├── submit.js     # Submit button + fetch logic
-        ├── store.js      # Zustand global state (nodes, edges, actions)
-        └── index.css     # Dark-theme stylesheet
+        ├── nodes/       # 9 node types (Input, LLM, Output, Text, Filter, Note, Math, API, Transform)
+        ├── App.js        # Root layout
+        ├── ui.js         # React Flow canvas + drag-and-drop logic
+        ├── toolbar.js    # Node palette (draggable chips)
+        ├── submit.js     # Submit button — POSTs pipeline to backend
+        └── store.js      # Zustand state (nodes, edges, actions)
 ```
+
+---
 
 ## Features
 
-- **9 node types** — Input, Output, LLM, Text, Filter, Note, Math, API, Transform
-- **Drag-and-drop canvas** — nodes are dragged from the toolbar onto the React Flow canvas
-- **Dynamic Text node** — detects `{{variable}}` template syntax and auto-creates input handles for each variable
-- **Shared Zustand store** — all components read from and write to a single reactive state tree
-- **DAG validation** — the backend runs Kahn's topological sort on submit and reports whether the graph is cycle-free
-- **Pipeline summary alert** — node count, edge count, and DAG status shown on submit
+- **9 node types** — drag any node from the toolbar onto the canvas
+- **Dynamic Text node** — type `{{variableName}}` and a live input handle appears for that variable automatically
+- **Connect nodes** — draw edges between handles to wire the pipeline
+- **DAG validation** — click Submit to send the graph to the backend; it returns node count, edge count, and whether the pipeline is cycle-free
+- **Dark theme canvas** with minimap and snap-to-grid
 
-## Getting Started
+---
 
-### Prerequisites
+## Running the Project
 
-- Node.js 16+
-- Python 3.9+
+> Run the backend first, then the frontend. Both must be running for Submit to work.
 
-### Backend
+### 1. Backend
 
 ```bash
 cd backend
+
+# Install dependencies
 pip install fastapi uvicorn pydantic
+
+# Start the server
 uvicorn main:app --reload
-# Runs on http://localhost:8000
 ```
 
-### Frontend
+Backend runs at **http://localhost:8000**
+
+---
+
+### 2. Frontend
 
 ```bash
 cd frontend
+
+# Install dependencies
 npm install
+
+# Start the app
 npm start
-# Runs on http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to use the app. The frontend expects the backend at `http://localhost:8000`.
+Frontend runs at **http://localhost:3000** — open this in your browser.
 
-## API
+---
+
+## How It Works
+
+1. Drag nodes from the top toolbar onto the canvas.
+2. Connect nodes by dragging from one handle to another.
+3. Click **Submit Pipeline** — the frontend sends the full graph (nodes + edges) to `POST /pipelines/parse`.
+4. An alert shows the result: number of nodes, number of edges, and whether it's a valid DAG.
+
+---
+
+## API Reference
 
 ### `GET /`
-Health check — returns `{"Ping": "Pong"}`.
+Health check.
+```json
+{ "Ping": "Pong" }
+```
 
 ### `POST /pipelines/parse`
+Validates the pipeline graph.
 
-Accepts a pipeline payload and returns graph statistics.
-
-**Request body**
+**Request**
 ```json
 {
-  "nodes": [{ "id": "input-1", ... }],
-  "edges": [{ "source": "input-1", "target": "llm-1", ... }]
+  "nodes": [{ "id": "input-1" }, { "id": "llm-1" }],
+  "edges": [{ "source": "input-1", "target": "llm-1" }]
 }
 ```
 
 **Response**
 ```json
 {
-  "num_nodes": 3,
-  "num_edges": 2,
+  "num_nodes": 2,
+  "num_edges": 1,
   "is_dag": true
 }
 ```
 
-## Implementation Notes
+The DAG check uses **Kahn's topological sort** — if all nodes are reachable via BFS from zero-in-degree nodes, the graph has no cycles.
 
-- `BaseNode.js` is a shared wrapper that all node types extend — it renders the colored header strip and maps `handles` props to React Flow `<Handle>` elements, keeping individual node files thin.
-- The DAG check in `main.py` uses Kahn's algorithm (BFS-based topological sort): build an in-degree map, start from zero-in-degree nodes, and confirm all nodes were visited. If `visited == len(nodes)`, the graph is acyclic.
-- The Text node uses a regex (`/\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g`) to extract variable names from its content and dynamically renders one `target` handle per unique variable.
+---
 
 ## Author
 
-Ateesh Kumar
+**Ateesh Kumar**
